@@ -86,7 +86,8 @@ def main(argv=None):
               interactive_plot=run_config.get('interactive_plot'),
               devices=devices)
         tr.run(0, citers)
-
+    elif train_dataset == 'egf':
+        raise NotImplementedError("Not implemented yet.")
     elif train_dataset == 'kitti':
         kconfig = copy.deepcopy(experiment.config['train'])
         kconfig.update(experiment.config['train_kitti'])
