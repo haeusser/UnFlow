@@ -12,21 +12,27 @@ from e2eflow.kitti.input import KITTIInput
 from e2eflow.kitti.data import KITTIData
 from e2eflow.chairs.data import ChairsData
 from e2eflow.chairs.input import ChairsInput
+from e2eflow.egf.data import EGFData
+from e2eflow.egf.input import EGFInput
 from e2eflow.sintel.data import SintelData
 from e2eflow.sintel.input import SintelInput
 from e2eflow.synthia.data import SynthiaData
 from e2eflow.cityscapes.data import CityscapesData
 
-
 tf.app.flags.DEFINE_string('ex', 'default',
                            'Name of the experiment.'
-                           'If the experiment folder already exists in the log dir, '
-                           'training will be continued from the latest checkpoint.')
+                           'If the experiment folder already exists in the '
+                           'log dir, '
+                           'training will be continued from the latest '
+                           'checkpoint.')
 tf.app.flags.DEFINE_boolean('debug', False,
-                            'Enable image summaries and disable checkpoint writing for debugging.')
+                            'Enable image summaries and disable checkpoint '
+                            'writing for debugging.')
 tf.app.flags.DEFINE_boolean('ow', False,
-                            'Overwrites a previous experiment with the same name (if present)'
-                            'instead of attempting to continue from its latest checkpoint.')
+                            'Overwrites a previous experiment with the same '
+                            'name (if present)'
+                            'instead of attempting to continue from its '
+                            'latest checkpoint.')
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -69,25 +75,53 @@ def main(argv=None):
                            stat_log_dir=None,
                            development=run_config['development'])
         cinput = ChairsInput(data=cdata,
-                 batch_size=gpu_batch_size,
-                 normalize=False,
-                 dims=(cconfig['height'], cconfig['width']))
+                             batch_size=gpu_batch_size,
+                             normalize=False,
+                             dims=(cconfig['height'], cconfig['width']))
         tr = Trainer(
-              lambda shift: cinput.input_raw(swap_images=False,
-                                             shift=shift * run_config['batch_size']),
-              lambda: einput.input_train_2012(),
-              params=cconfig,
-              normalization=cinput.get_normalization(),
-              train_summaries_dir=experiment.train_dir,
-              eval_summaries_dir=experiment.eval_dir,
-              experiment=FLAGS.ex,
-              ckpt_dir=experiment.save_dir,
-              debug=FLAGS.debug,
-              interactive_plot=run_config.get('interactive_plot'),
-              devices=devices)
+            lambda shift: cinput.input_raw(swap_images=False,
+                                           shift=shift * run_config[
+                                               'batch_size']),
+            lambda: einput.input_train_2012(),
+            params=cconfig,
+            normalization=cinput.get_normalization(),
+            train_summaries_dir=experiment.train_dir,
+            eval_summaries_dir=experiment.eval_dir,
+            experiment=FLAGS.ex,
+            ckpt_dir=experiment.save_dir,
+            debug=FLAGS.debug,
+            interactive_plot=run_config.get('interactive_plot'),
+            devices=devices)
         tr.run(0, citers)
+
     elif train_dataset == 'egf':
-        raise NotImplementedError("Not implemented yet.")
+        econfig = copy.deepcopy(experiment.config['train'])
+        econfig.update(experiment.config['train_egf'])
+        convert_input_strings(econfig, dirs)
+        experiment.config['dirs']
+        eiters = econfig.get('num_iters', 0)
+        edata = EGFData(data_dir=dirs['data'],
+                        fast_dir=dirs.get('fast'),
+                        stat_log_dir=None,
+                        development=run_config['development'])
+        einput = EGFInput(data=edata,
+                          batch_size=gpu_batch_size,
+                          dims=(econfig['height'], econfig['width']))
+        tr = Trainer(
+            lambda shift: einput.input_raw(shift=shift * run_config[
+                                               'batch_size']),
+            lambda: einput.input_gt(),
+            params=econfig,
+            normalization=einput.get_normalization(),
+            train_summaries_dir=experiment.train_dir,
+            eval_summaries_dir=experiment.eval_dir,
+            experiment=FLAGS.ex,
+            ckpt_dir=experiment.save_dir,
+            debug=FLAGS.debug,
+            interactive_plot=run_config.get('interactive_plot'),
+            devices=devices)
+        tr.run(0, eiters)
+
     elif train_dataset == 'kitti':
         kconfig = copy.deepcopy(experiment.config['train'])
         kconfig.update(experiment.config['train_kitti'])
@@ -99,19 +133,20 @@ def main(argv=None):
                             skipped_frames=True,
                             dims=(kconfig['height'], kconfig['width']))
         tr = Trainer(
-              lambda shift: kinput.input_raw(swap_images=False,
-                                             center_crop=True,
-                                             shift=shift * run_config['batch_size']),
-              lambda: einput.input_train_2012(),
-              params=kconfig,
-              normalization=kinput.get_normalization(),
-              train_summaries_dir=experiment.train_dir,
-              eval_summaries_dir=experiment.eval_dir,
-              experiment=FLAGS.ex,
-              ckpt_dir=experiment.save_dir,
-              debug=FLAGS.debug,
-              interactive_plot=run_config.get('interactive_plot'),
-              devices=devices)
+            lambda shift: kinput.input_raw(swap_images=False,
+                                           center_crop=True,
+                                           shift=shift * run_config[
+                                               'batch_size']),
+            lambda: einput.input_train_2012(),
+            params=kconfig,
+            normalization=kinput.get_normalization(),
+            train_summaries_dir=experiment.train_dir,
+            eval_summaries_dir=experiment.eval_dir,
+            experiment=FLAGS.ex,
+            ckpt_dir=experiment.save_dir,
+            debug=FLAGS.debug,
+            interactive_plot=run_config.get('interactive_plot'),
+            devices=devices)
         tr.run(0, kiters)
 
     elif train_dataset == 'cityscapes':
@@ -120,29 +155,30 @@ def main(argv=None):
         convert_input_strings(kconfig, dirs)
         kiters = kconfig.get('num_iters', 0)
         cdata = CityscapesData(data_dir=dirs['data'],
-                    fast_dir=dirs.get('fast'),
-                    stat_log_dir=None,
-                    development=run_config['development'])
+                               fast_dir=dirs.get('fast'),
+                               stat_log_dir=None,
+                               development=run_config['development'])
         kinput = KITTIInput(data=cdata,
                             batch_size=gpu_batch_size,
                             normalize=False,
                             skipped_frames=False,
                             dims=(kconfig['height'], kconfig['width']))
         tr = Trainer(
-              lambda shift: kinput.input_raw(swap_images=False,
-                                             center_crop=True,
-                                             skip=[0, 1],
-                                             shift=shift * run_config['batch_size']),
-              lambda: einput.input_train_2012(),
-              params=kconfig,
-              normalization=kinput.get_normalization(),
-              train_summaries_dir=experiment.train_dir,
-              eval_summaries_dir=experiment.eval_dir,
-              experiment=FLAGS.ex,
-              ckpt_dir=experiment.save_dir,
-              debug=FLAGS.debug,
-              interactive_plot=run_config.get('interactive_plot'),
-              devices=devices)
+            lambda shift: kinput.input_raw(swap_images=False,
+                                           center_crop=True,
+                                           skip=[0, 1],
+                                           shift=shift * run_config[
+                                               'batch_size']),
+            lambda: einput.input_train_2012(),
+            params=kconfig,
+            normalization=kinput.get_normalization(),
+            train_summaries_dir=experiment.train_dir,
+            eval_summaries_dir=experiment.eval_dir,
+            experiment=FLAGS.ex,
+            ckpt_dir=experiment.save_dir,
+            debug=FLAGS.debug,
+            interactive_plot=run_config.get('interactive_plot'),
+            devices=devices)
         tr.run(0, kiters)
 
     elif train_dataset == 'synthia':
@@ -151,26 +187,27 @@ def main(argv=None):
         convert_input_strings(sconfig, dirs)
         siters = sconfig.get('num_iters', 0)
         sdata = SynthiaData(data_dir=dirs['data'],
-                fast_dir=dirs.get('fast'),
-                stat_log_dir=None,
-                development=run_config['development'])
+                            fast_dir=dirs.get('fast'),
+                            stat_log_dir=None,
+                            development=run_config['development'])
         sinput = KITTIInput(data=sdata,
                             batch_size=gpu_batch_size,
                             normalize=False,
                             dims=(sconfig['height'], sconfig['width']))
         tr = Trainer(
-              lambda shift: sinput.input_raw(swap_images=False,
-                                             shift=shift * run_config['batch_size']),
-              lambda: einput.input_train_2012(),
-              params=sconfig,
-              normalization=sinput.get_normalization(),
-              train_summaries_dir=experiment.train_dir,
-              eval_summaries_dir=experiment.eval_dir,
-              experiment=FLAGS.ex,
-              ckpt_dir=experiment.save_dir,
-              debug=FLAGS.debug,
-              interactive_plot=run_config.get('interactive_plot'),
-              devices=devices)
+            lambda shift: sinput.input_raw(swap_images=False,
+                                           shift=shift * run_config[
+                                               'batch_size']),
+            lambda: einput.input_train_2012(),
+            params=sconfig,
+            normalization=sinput.get_normalization(),
+            train_summaries_dir=experiment.train_dir,
+            eval_summaries_dir=experiment.eval_dir,
+            experiment=FLAGS.ex,
+            ckpt_dir=experiment.save_dir,
+            debug=FLAGS.debug,
+            interactive_plot=run_config.get('interactive_plot'),
+            devices=devices)
         tr.run(0, siters)
 
     elif train_dataset == 'kitti_ft':
@@ -183,24 +220,24 @@ def main(argv=None):
                              normalize=False,
                              dims=(ftconfig['height'], ftconfig['width']))
         tr = Trainer(
-              lambda shift: ftinput.input_train_gt(40),
-              lambda: einput.input_train_2015(40),
-              supervised=True,
-              params=ftconfig,
-              normalization=ftinput.get_normalization(),
-              train_summaries_dir=experiment.train_dir,
-              eval_summaries_dir=experiment.eval_dir,
-              experiment=FLAGS.ex,
-              ckpt_dir=experiment.save_dir,
-              debug=FLAGS.debug,
-              interactive_plot=run_config.get('interactive_plot'),
-              devices=devices)
+            lambda shift: ftinput.input_train_gt(40),
+            lambda: einput.input_train_2015(40),
+            supervised=True,
+            params=ftconfig,
+            normalization=ftinput.get_normalization(),
+            train_summaries_dir=experiment.train_dir,
+            eval_summaries_dir=experiment.eval_dir,
+            experiment=FLAGS.ex,
+            ckpt_dir=experiment.save_dir,
+            debug=FLAGS.debug,
+            interactive_plot=run_config.get('interactive_plot'),
+            devices=devices)
         tr.run(0, ftiters)
 
     else:
-      raise ValueError(
-          "Invalid dataset. Dataset must be one of "
-          "{synthia, kitti, kitti_ft, cityscapes, chairs}")
+        raise ValueError(
+            "Invalid dataset. Dataset must be one of "
+            "{synthia, kitti, kitti_ft, cityscapes, chairs, egf}")
 
     if not FLAGS.debug:
         experiment.conclude()

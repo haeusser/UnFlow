@@ -1,6 +1,7 @@
 data
 log
 out
+.idea/
 
 /config.ini
 
