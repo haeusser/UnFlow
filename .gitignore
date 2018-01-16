@@ -2,6 +2,7 @@ data
 log
 out
 .idea/
+venv/
 
 /config.ini
 
@@ -12,3 +13,5 @@ __pycache__
 
 *.so
 *.o
+
+*.pyc

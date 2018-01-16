@@ -95,7 +95,7 @@ class Trainer():
     def __init__(self, train_batch_fn, eval_batch_fn, params,
                  train_summaries_dir, eval_summaries_dir, ckpt_dir,
                  normalization, debug=False, experiment="", interactive_plot=False,
-                 supervised=False, devices=None):
+                 supervised=False, augmentation=True, devices=None):
 
         self.train_summaries_dir = train_summaries_dir
         self.eval_summaries_dir = eval_summaries_dir
@@ -109,6 +109,7 @@ class Trainer():
         self.interactive_plot = interactive_plot
         self.plot_proc = None
         self.supervised = supervised
+        self.augmentation = augmentation
         self.loss_fn = supervised_loss if supervised else unsupervised_loss
         self.devices = devices or '/gpu:0'
         self.shared_device = devices[0] if len(devices) == 1 else '/cpu:0'
@@ -120,7 +121,6 @@ class Trainer():
         training is continued from global_step + 1 until max_iter is reached.
         """
         save_interval = self.params['save_interval']
-
         ckpt = tf.train.get_checkpoint_state(self.ckpt_dir)
         if ckpt is not None:
             ckpt_path = ckpt.model_checkpoint_path
@@ -135,11 +135,10 @@ class Trainer():
             start_iter = min_iter + 1
 
         print('-- training from i = {} to {}'.format(start_iter, max_iter))
-
         assert (max_iter - start_iter + 1) % save_interval == 0
         for i in range(start_iter, max_iter + 1, save_interval):
             self.train(i, i + save_interval - 1, i - (min_iter + 1))
-            self.eval(1)
+            #self.eval(1)
 
         if self.plot_proc:
             self.plot_proc.join()
@@ -157,7 +156,7 @@ class Trainer():
                 _add_image_summaries()
 
         if len(self.devices) == 1:
-            loss_ = self.loss_fn(batch, self.params, self.normalization)
+            loss_ = self.loss_fn(batch, self.params, self.normalization, augment=self.augmentation)
             train_op = opt.minimize(loss_)
             _add_summaries()
         else:
@@ -166,7 +165,7 @@ class Trainer():
                 for i, devid in enumerate(self.devices):
                     with tf.device(devid):
                         with tf.name_scope('tower_{}'.format(i)) as scope:
-                            loss_ = self.loss_fn(batch, self.params, self.normalization)
+                            loss_ = self.loss_fn(batch, self.params, self.normalization, augment=self.augmentation)
                             _add_summaries()
 
                             # Reuse variables for the next tower.

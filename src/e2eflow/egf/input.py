@@ -38,7 +38,7 @@ class EGFInput(Input):
         raise RuntimeError("Should not be used!")
 
     def get_normalization(self):
-        raise RuntimeError("Should not be used!")
+        return 0., 1.
 
     def _get_input(self, split='train'):
         height, width = self.dims
@@ -83,7 +83,20 @@ class EGFInput(Input):
             electrode_2_up = tf.image.resize_bicubic(
                 [tf.expand_dims(electrode_2, -1)], [height, width])
 
+            electrode_1_up = tf.squeeze(electrode_1_up)
+            electrode_2_up = tf.squeeze(electrode_2_up)
+            electrode_1_up = tf.expand_dims(electrode_1_up, -1)
+            electrode_2_up = tf.expand_dims(electrode_2_up, -1)
+
+            # Hack
+            electrode_1_up = tf.image.grayscale_to_rgb(electrode_1_up)
+            electrode_2_up = tf.image.grayscale_to_rgb(electrode_2_up)
+
+            electrode_1_up.set_shape([height, width, 3])
+            electrode_2_up.set_shape([height, width, 3])
+
             fetches = [electrode_1_up, electrode_2_up]
+
 
             if testing:
                 flow = tf.decode_raw(features['flow'],
@@ -92,9 +105,15 @@ class EGFInput(Input):
                 flow = tf.reshape(flow, [200, 200, 2])
                 fetches.append(flow)
 
-            return tf.train.shuffle_batch(fetches,
-                                          batch_size=self.batch_size,
-                                          num_threads=self.num_threads)
+            return tf.train.batch(
+                fetches,
+                batch_size=self.batch_size,
+                num_threads=self.num_threads)
+            #return tf.train.shuffle_batch(fetches,
+            #                              batch_size=self.batch_size,
+            #                              num_threads=self.num_threads,
+            #                              capacity=3*self.batch_size,
+            #                              min_after_dequeue=10)
 
     def input_raw(self, swap_images=True, sequence=True,
                   needs_crop=True, shift=0, seed=0,

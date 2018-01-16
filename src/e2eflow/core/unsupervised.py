@@ -14,6 +14,10 @@ from .flownet import flownet, FLOW_SCALE
 # REGISTER ALL POSSIBLE LOSS TERMS
 LOSSES = ['occ', 'sym', 'fb', 'grad', 'ternary', 'photo', 'smooth_1st', 'smooth_2nd']
 
+from inspect import currentframe
+def debug_print(arg='   ############'):
+    frameinfo = currentframe()
+    print(frameinfo.f_back.f_lineno,":",arg)
 
 def _track_loss(op, name):
     tf.add_to_collection('losses', tf.identity(op, name=name))
@@ -68,7 +72,6 @@ def unsupervised_loss(batch, params, normalization=None, augment=True,
     # Images for neural network input with mean-zero values in [-1, 1]
     im1_photo = im1_photo - channel_mean
     im2_photo = im2_photo - channel_mean
-
     flownet_spec = params.get('flownet', 'S')
     full_resolution = params.get('full_res')
     train_all = params.get('train_all')
@@ -78,9 +81,11 @@ def unsupervised_loss(batch, params, normalization=None, augment=True,
                                  full_resolution=full_resolution,
                                  backward_flow=True,
                                  train_all=train_all)
-
     flows_fw = flows_fw[-1]
     flows_bw = flows_bw[-1]
+
+
+
 
     # -------------------------------------------------------------------------
     # Losses
@@ -124,7 +129,6 @@ def unsupervised_loss(batch, params, normalization=None, augment=True,
 
             mask_occlusion = params.get('mask_occlusion', '')
             assert mask_occlusion in ['fb', 'disocc', '']
-
             losses = compute_losses(im1_s, im2_s,
                                     flow_fw_s * flow_scale, flow_bw_s * flow_scale,
                                     border_mask=mask_s if params.get('border_mask') else None,
@@ -145,7 +149,6 @@ def unsupervised_loss(batch, params, normalization=None, augment=True,
             im1_s = downsample(im1_s, 2)
             im2_s = downsample(im2_s, 2)
             mask_s = downsample(mask_s, 2)
-
     regularization_loss = tf.losses.get_regularization_loss()
     final_loss = combined_loss + regularization_loss
 

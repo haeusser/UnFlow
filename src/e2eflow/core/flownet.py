@@ -232,6 +232,7 @@ def flownet_c(conv3_a, conv3_b, conv2_a, channel_mult=1, full_res=False):
         conv6 = slim.conv2d(conv5_1, int(1024 * m), 3, stride=2, scope='conv6')
         conv6_1 = slim.conv2d(conv6, int(1024 * m), 3, stride=1, scope='conv6_1')
 
+
         res = _flownet_upconv(conv6_1, conv5_1, conv4_1, conv3_1, conv2_a,
                               channel_mult=channel_mult, full_res=full_res)
         return nchw_to_nhwc(res)

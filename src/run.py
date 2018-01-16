@@ -107,6 +107,7 @@ def main(argv=None):
         einput = EGFInput(data=edata,
                           batch_size=gpu_batch_size,
                           dims=(econfig['height'], econfig['width']))
+
         tr = Trainer(
             lambda shift: einput.input_raw(shift=shift * run_config[
                                                'batch_size']),
@@ -119,7 +120,8 @@ def main(argv=None):
             ckpt_dir=experiment.save_dir,
             debug=FLAGS.debug,
             interactive_plot=run_config.get('interactive_plot'),
-            devices=devices)
+            devices=devices,
+            augmentation=False)
         tr.run(0, eiters)
 
     elif train_dataset == 'kitti':
@@ -244,4 +246,5 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
+    tf.logging.set_verbosity(tf.logging.INFO)
     tf.app.run()
